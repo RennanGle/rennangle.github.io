@@ -394,6 +394,7 @@ const state = {
   agenda: localStorage.getItem('agenda_current') || 'GERAL',
   currentDay: new Date(),
   tasks: JSON.parse(localStorage.getItem('agenda_tasks')||'[]'),
+  collabs: JSON.parse(localStorage.getItem('agenda_collabs')||'[]'),
   timers: {} // id -> {running, startedAt, elapsed}
 };
 
@@ -419,6 +420,7 @@ function addDays(dateStr, days){
 }
 function save(){
   localStorage.setItem('agenda_tasks', JSON.stringify(state.tasks));
+  localStorage.setItem('agenda_collabs', JSON.stringify(state.collabs));
   localStorage.setItem('agenda_current', state.agenda);
 }
 
@@ -431,16 +433,23 @@ agendaSelect.addEventListener('change', ()=>{
 });
 $('#btnNewTask').addEventListener('click', ()=> openModal());
 $('#btnExport').addEventListener('click', ()=>{
-  const blob = new Blob([JSON.stringify(state.tasks,null,2)], {type:'application/json'});
+  const blob = new Blob([JSON.stringify({tasks: state.tasks, collabs: state.collabs},null,2)], {type:'application/json'});
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob); a.download = 'agenda-tarefas.json'; a.click();
+  a.href = URL.createObjectURL(blob); a.download = 'agenda-dados.json'; a.click();
 });
 $('#importFile').addEventListener('change', async (e)=>{
   const file = e.target.files[0]; if(!file) return;
   const text = await file.text();
   try{
     const data = JSON.parse(text);
-    if(Array.isArray(data)){ state.tasks = data; save(); renderAll(); }
+    if(Array.isArray(data.tasks) && Array.isArray(data.collabs)){
+      state.tasks = data.tasks;
+      state.collabs = data.collabs;
+      save();
+      renderAll();
+    }else{
+      throw new Error('missing arrays');
+    }
   }catch(err){ alert('Arquivo inválido'); }
 });
 $('#btnReport').addEventListener('click', ()=>{
