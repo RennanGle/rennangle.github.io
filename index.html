@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Agenda do Gestor</title>
+<style>
+/* ====== Design System ====== */
+:root{
+  --bg:#0f141b;
+  --panel:#141a22;
+  --panel-2:#0d131a;
+  --elev:#0b1016;
+  --muted:#90a0b7;
+  --text:#dfe7f3;
+  --text-2:#b7c2d6;
+  --accent:#3b82f6;
+  --ok:#22c55e;
+  --warn:#f59e0b;
+  --danger:#ef4444;
+  --chip:#1e2633;
+  --input:#101724;
+  --shadow: 0 6px 20px rgba(0,0,0,.35);
+  --radius:14px;
+  --radius-sm:10px;
+  --radius-xs:8px;
+  --gap:16px;
+  --gap-sm:10px;
+  --gap-lg:22px;
+  --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji";
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; font-family:var(--font); background:linear-gradient(180deg,#0b1117 0%, #0c1219 100%); color:var(--text);
+}
+
+/* ====== Topbar ====== */
+.topbar{
+  position:sticky; top:0; z-index:10;
+  background:rgba(8,12,18,.75); backdrop-filter: blur(10px);
+  border-bottom:1px solid rgba(255,255,255,.04);
+}
+.topbar-inner{
+  max-width:1200px; margin:0 auto; padding:14px var(--gap);
+  display:grid; gap:var(--gap);
+}
+.toprow{
+  display:grid; grid-template-columns: 160px 1fr auto; gap:var(--gap);
+  align-items:center;
+}
+.brand{
+  display:flex; align-items:center; gap:10px; font-weight:700;
+}
+.brand .dot{width:10px;height:10px;border-radius:50%;background:#8ab4ff;box-shadow:0 0 10px #3b82f6}
+.select, .input, .btn, .chip{
+  border:1px solid rgba(255,255,255,.06);
+  background:var(--panel); color:var(--text);
+  padding:10px 12px; border-radius:var(--radius-xs); font-size:14px;
+}
+.select, .input{background:var(--input)}
+.input{width:100%}
+.controls{
+  display:grid; grid-template-columns: repeat(9, max-content) 1fr; gap:var(--gap-sm); align-items:center;
+}
+.controls .grow{grid-column: -2 / -1}
+.btn{
+  display:inline-flex; align-items:center; gap:8px; cursor:pointer; transition:.15s ease;
+  box-shadow: var(--shadow);
+}
+.btn:hover{transform: translateY(-1px); filter:brightness(1.05)}
+.btn.primary{background:linear-gradient(180deg,#3b82f6,#285de5);border-color:transparent}
+.btn.ghost{background:var(--panel)}
+.btn.ok{background:linear-gradient(180deg,#2fcf70,#1ea95a);border-color:transparent}
+.btn.warn{background:linear-gradient(180deg,#ffb54d,#f59e0b);border-color:transparent}
+.btn.danger{background:linear-gradient(180deg,#ff6767,#ef4444);border-color:transparent}
+.icon{width:16px;height:16px; display:inline-block}
+
+/* ====== Layout ====== */
+.container{max-width:1200px; margin:18px auto 40px; padding:0 var(--gap);}
+.grid{
+  display:grid; grid-template-columns: 300px 1fr; gap:var(--gap);
+}
+@media (max-width: 980px){
+  .grid{grid-template-columns: 1fr}
+}
+
+/* ====== Sidebar ====== */
+.sidebar{display:flex; flex-direction:column; gap:var(--gap);}
+.panel{background:var(--panel); border:1px solid rgba(255,255,255,.05); border-radius:var(--radius); box-shadow:var(--shadow); padding:14px;}
+.panel h3{margin:0 0 12px 0; font-size:15px; color:var(--text-2); font-weight:700; letter-spacing:.3px}
+
+/* Calendar */
+.calendar{
+  display:grid; gap:12px;
+}
+.cal-head{
+  display:flex; justify-content:space-between; align-items:center;
+}
+.cal-nav{display:flex; gap:6px}
+.cal-nav .btn{padding:6px 10px}
+.month{font-weight:700}
+.weekdays, .days{display:grid; grid-template-columns: repeat(7, 1fr); gap:8px;}
+.weekdays span{font-size:12px; color:var(--muted); text-align:center}
+.day{
+  aspect-ratio:1/1; border-radius:10px; background:var(--panel-2);
+  display:flex; align-items:center; justify-content:center; position:relative;
+  border:1px solid rgba(255,255,255,.04); cursor:pointer; transition:.15s ease;
+}
+.day:hover{filter:brightness(1.05); transform: translateY(-1px)}
+.day .dot{position:absolute; bottom:6px; width:6px; height:6px; border-radius:50%}
+.dot.red{background:var(--danger)}
+.dot.yellow{background:var(--warn)}
+.dot.green{background:var(--ok)}
+.day.is-today{outline:1px solid #3b82f6}
+.day.is-other{opacity:.35}
+
+/* Prioridades “Pizza” */
+.pizza{
+  height:180px; border:1px dashed rgba(255,255,255,.07);
+  border-radius:12px; display:flex; align-items:center; justify-content:center; color:var(--muted);
+}
+
+/* ====== Main ====== */
+.main{display:flex; flex-direction:column; gap:var(--gap);}
+.summary{
+  display:flex; flex-wrap:wrap; gap:10px;
+}
+.kpi{background:var(--panel); border:1px solid rgba(255,255,255,.05); border-radius:999px; padding:10px 14px; color:var(--text-2); font-weight:600}
+.kpi strong{color:var(--text)}
+
+.toolbar-row{display:flex; align-items:center; justify-content:space-between; gap:10px}
+.filter-badges{display:flex; gap:8px; align-items:center}
+.badge{background:var(--chip); color:var(--text-2); font-size:12px; padding:8px 10px; border-radius:999px; border:1px solid rgba(255,255,255,.06)}
+
+.tasklist{display:flex; flex-direction:column; gap:12px}
+.card{
+  background:linear-gradient(180deg, #121923 0%, #0e1620 100%);
+  border:1px solid rgba(255,255,255,.06); border-radius:16px; padding:16px; box-shadow:var(--shadow);
+  display:grid; grid-template-columns: 1fr max-content; gap:14px; align-items:center;
+}
+.card:hover{transform: translateY(-1px)}
+.card .title{font-weight:800; letter-spacing:.2px}
+.card .meta{color:var(--text-2); font-size:13px; display:flex; gap:8px; align-items:center}
+.tagline{display:flex; flex-wrap:wrap; gap:8px; margin-top:6px}
+.chip{background:var(--chip); color:var(--text-2); border-color:rgba(255,255,255,.08)}
+.chip.round{border-radius:999px; padding:6px 10px; font-size:12px}
+.chip.p-high{border-left:4px solid var(--danger)}
+.chip.p-medium{border-left:4px solid var(--warn)}
+.chip.p-low{border-left:4px solid var(--ok)}
+
+.right{
+  display:flex; align-items:center; gap:8px;
+}
+.timer{font-variant-numeric: tabular-nums; background:var(--panel-2); padding:8px 10px; border-radius:10px; border:1px solid rgba(255,255,255,.06)}
+.card .actions .btn{padding:10px 10px}
+.actions{display:flex; gap:8px}
+.btn.square{width:38px; height:38px; justify-content:center; padding:0}
+
+/* ====== Modais ====== */
+.modal-backdrop{
+  position:fixed; inset:0; background:rgba(0,0,0,.55);
+  display:none; align-items:center; justify-content:center; z-index:50;
+}
+.modal{
+  width:min(680px, 92vw); background:var(--panel); border:1px solid rgba(255,255,255,.08);
+  border-radius:16px; box-shadow:var(--shadow); padding:18px;
+}
+.modal h2{margin:0 0 12px}
+.form{display:grid; gap:12px}
+.row{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+textarea{min-height:110px; resize:vertical}
+label{font-size:12px; color:var(--muted); display:block; margin-bottom:6px}
+footer.modalbar{display:flex; justify-content:flex-end; gap:8px; margin-top:8px}
+
+/* ====== Helpers ====== */
+.hidden{display:none !important}
+.muted{color:var(--muted)}
+.hr{height:1px; background:rgba(255,255,255,.06); margin:12px 0}
+.small{font-size:12px}
+</style>
+</head>
+<body>
+
+<!-- ========= TOPBAR ========= -->
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="toprow">
+      <div class="brand"><span class="dot"></span> Agenda do Gestor</div>
+      <div class="controls">
+        <select id="agendaSelect" class="select">
+          <option value="GERAL">GERAL</option>
+          <option value="NEREES">NEREES</option>
+          <option value="Agendamentos">Agendamentos</option>
+          <option value="Reuniões">Reuniões</option>
+        </select>
+
+        <input type="date" id="fromDate" class="select" />
+        <input type="date" id="toDate" class="select" />
+        <label class="select small" style="display:flex;align-items:center;gap:8px;">
+          <input type="checkbox" id="chkLate" /> Atrasadas
+        </label>
+        <select id="orderBy" class="select">
+          <option value="datetime">Ordenar: Data/Hora</option>
+          <option value="priority">Ordenar: Prioridade</option>
+          <option value="status">Ordenar: Status</option>
+          <option value="assignee">Ordenar: Responsável</option>
+        </select>
+
+        <button class="btn primary" id="btnNewTask">
+          <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M11 11V5h2v6h6v2h-6v6h-2v-6H5v-2z"/></svg>
+          Nova Tarefa
+        </button>
+
+        <button class="btn ghost" id="btnExport">Exportar</button>
+        <label class="btn ghost" for="importFile">Importar</label>
+        <input id="importFile" type="file" accept="application/json" hidden />
+        <button class="btn ghost" id="btnReport">Relatório</button>
+
+        <div class="grow"></div>
+
+        <input id="search" class="input" placeholder="Buscar por título/colaborador" />
+        <select id="statusFilter" class="select">
+          <option value="">Status: Todos</option>
+          <option value="new">Novo</option>
+          <option value="in_progress">Em progresso</option>
+          <option value="paused">Pausado</option>
+          <option value="done">Concluído</option>
+        </select>
+        <select id="priorityFilter" class="select">
+          <option value="">Prioridade: Todas</option>
+          <option value="alta">Alta</option>
+          <option value="media">Média</option>
+          <option value="baixa">Baixa</option>
+        </select>
+        <select id="assigneeFilter" class="select">
+          <option value="">Colaborador: Todos</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ========= CONTENT ========= -->
+<main class="container">
+  <div class="grid">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <section class="panel">
+        <div class="calendar">
+          <div class="cal-head">
+            <div class="cal-nav">
+              <button class="btn" id="prevMonth">«</button>
+              <button class="btn" id="btnToday">Hoje</button>
+              <button class="btn" id="nextMonth">»</button>
+            </div>
+            <div class="month" id="monthLabel">Agosto 2025</div>
+          </div>
+          <div class="weekdays">
+            <span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span>
+          </div>
+          <div class="days" id="daysGrid"></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h3>Prioridades</h3>
+        <div class="pizza">Pizza</div>
+        <div class="hr"></div>
+        <div class="small muted" id="prioLegend">
+          <div>🔴 Alta — <span id="pHigh">0</span></div>
+          <div>🟡 Média — <span id="pMed">0</span></div>
+          <div>🟢 Baixa — <span id="pLow">0</span></div>
+        </div>
+      </section>
+    </aside>
+
+    <!-- Main -->
+    <section class="main">
+      <div class="toolbar-row">
+        <div class="badge" id="agendaTitle">Agenda: GERAL</div>
+        <div class="summary" id="summaryRow">
+          <div class="kpi">Dia: <strong id="kpiDay">—</strong></div>
+          <div class="kpi">Tarefas: <strong id="kpiTasks">0</strong></div>
+          <div class="kpi">Em progresso: <strong id="kpiDoing">0</strong></div>
+          <div class="kpi">Concluídas: <strong id="kpiDone">0</strong></div>
+          <div class="kpi">Tempo total do dia: <strong id="kpiTime">00:00:00</strong></div>
+        </div>
+      </div>
+
+      <div class="toolbar-row">
+        <div class="badge">Todas as tarefas</div>
+        <button class="btn" id="btnClearFilters">Limpar filtros</button>
+      </div>
+
+      <div class="tasklist" id="taskList"></div>
+
+      <div class="panel">
+        <button class="btn warn">Exemplo de aviso</button>
+      </div>
+    </section>
+  </div>
+</main>
+
+<!-- ========= MODAL: NOVA/EDITAR TAREFA ========= -->
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal">
+    <h2 id="modalTitle">Nova Tarefa</h2>
+    <div class="form">
+      <div class="row">
+        <div>
+          <label>Título</label>
+          <input id="f_title" class="input" placeholder="Ex.: Revisar contrato com fornecedor" />
+        </div>
+        <div>
+          <label>Responsável</label>
+          <input id="f_assignee" class="input" list="assignees" placeholder="Ex.: Joana (Analista)" />
+          <datalist id="assignees"></datalist>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Data/Hora</label>
+          <input id="f_datetime" type="datetime-local" class="select" />
+        </div>
+        <div>
+          <label>Deadline</label>
+          <input id="f_deadline" type="date" class="select" />
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Agenda</label>
+          <select id="f_agenda" class="select">
+            <option>GERAL</option><option>NEREES</option><option>Agendamentos</option><option>Reuniões</option>
+          </select>
+        </div>
+        <div>
+          <label>Prioridade</label>
+          <select id="f_priority" class="select">
+            <option value="alta">Alta</option>
+            <option value="media">Média</option>
+            <option value="baixa">Baixa</option>
+          </select>
+        </div>
+      </div>
+      <div class="">
+        <label>Descrição</label>
+        <textarea id="f_desc" class="input" placeholder="Detalhes, links, anexos, etc."></textarea>
+      </div>
+      <div class="row">
+        <div>
+          <label>Status</label>
+          <select id="f_status" class="select">
+            <option value="new">new</option>
+            <option value="in_progress">in_progress</option>
+            <option value="paused">paused</option>
+            <option value="done">done</option>
+          </select>
+        </div>
+        <div>
+          <label>Tags (separe por vírgula)</label>
+          <input id="f_tags" class="input" placeholder="Ex.: alta, NEREES" />
+        </div>
+      </div>
+    </div>
+    <footer class="modalbar">
+      <button class="btn ghost" id="btnCancel">Cancelar</button>
+      <button class="btn ok" id="btnSave">Salvar</button>
+    </footer>
+  </div>
+</div>
+
+<script>
+/* =========================
+   Agenda do Gestor — Single File
+   ========================= */
+
+// ------- Utilidades -------
+const $ = sel => document.querySelector(sel);
+const $$ = sel => [...document.querySelectorAll(sel)];
+const fmt2 = n => String(n).padStart(2,'0');
+const toDateKey = d => `${d.getFullYear()}-${fmt2(d.getMonth()+1)}-${fmt2(d.getDate())}`;
+const parseDate = s => s ? new Date(s) : null;
+const msToHMS = ms => {
+  const total = Math.max(0, Math.floor(ms/1000));
+  const h = Math.floor(total/3600), m = Math.floor((total%3600)/60), s = total%60;
+  return `${fmt2(h)}:${fmt2(m)}:${fmt2(s)}`;
+};
+const uid = () => crypto.randomUUID();
+
+// ------- Estado -------
+const state = {
+  agenda: localStorage.getItem('agenda_current') || 'GERAL',
+  currentDay: new Date(),
+  tasks: JSON.parse(localStorage.getItem('agenda_tasks')||'[]'),
+  timers: {} // id -> {running, startedAt, elapsed}
+};
+
+// Exemplos iniciais (se vazio)
+if(state.tasks.length === 0){
+  const now = new Date();
+  const base = toDateKey(now);
+  state.tasks = [
+    {id:uid(), title:'Revisar contrato com fornecedor', assignee:'Joana (Analista)', agenda:'NEREES',
+     datetime: `${base}T14:00`, deadline: addDays(base,1), priority:'alta', status:'in_progress',
+     tags:['in_progress','alta','NEREES'], desc:'Checar cláusulas 4.2 e 5.1; anexar parecer jurídico.', elapsed: 42*60*1000 },
+    {id:uid(), title:'Preparar pauta da reunião semanal', assignee:'Carlos (Coord.)', agenda:'Reuniões',
+     datetime: `${base}T09:00`, deadline: addDays(base,2), priority:'media', status:'new',
+     tags:['new','média','Reuniões'], desc:'Pontos: metas, cronograma, pendências.', elapsed: 0 },
+    {id:uid(), title:'Atualizar planilha de agendamentos', assignee:'Marina (Assist.)', agenda:'Agendamentos',
+     datetime: `${base}T16:30`, deadline: addDays(base,4), priority:'baixa', status:'paused',
+     tags:['paused','baixa','Agendamentos'], desc:'Sincronizar com Google Agenda.', elapsed: 72*60*1000 },
+  ];
+  save();
+}
+function addDays(dateStr, days){
+  const d = new Date(dateStr); d.setDate(d.getDate()+days); return d.toISOString().slice(0,10);
+}
+function save(){
+  localStorage.setItem('agenda_tasks', JSON.stringify(state.tasks));
+  localStorage.setItem('agenda_current', state.agenda);
+}
+
+// ------- Topbar bindings -------
+const agendaSelect = $('#agendaSelect');
+agendaSelect.value = state.agenda;
+agendaSelect.addEventListener('change', ()=>{
+  state.agenda = agendaSelect.value;
+  save(); renderAll();
+});
+$('#btnNewTask').addEventListener('click', ()=> openModal());
+$('#btnExport').addEventListener('click', ()=>{
+  const blob = new Blob([JSON.stringify(state.tasks,null,2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'agenda-tarefas.json'; a.click();
+});
+$('#importFile').addEventListener('change', async (e)=>{
+  const file = e.target.files[0]; if(!file) return;
+  const text = await file.text();
+  try{
+    const data = JSON.parse(text);
+    if(Array.isArray(data)){ state.tasks = data; save(); renderAll(); }
+  }catch(err){ alert('Arquivo inválido'); }
+});
+$('#btnReport').addEventListener('click', ()=>{
+  const w = window.open('', '_blank');
+  const rows = filteredTasks().map(t=> `<tr>
+    <td>${escapeHtml(t.title)}</td>
+    <td>${escapeHtml(t.assignee||'')}</td>
+    <td>${escapeHtml(t.agenda)}</td>
+    <td>${fmtDateTime(t.datetime)}</td>
+    <td>${t.deadline||''}</td>
+    <td>${t.priority}</td>
+    <td>${t.status}</td>
+  </tr>`).join('');
+  w.document.write(`
+    <html><head><title>Relatório</title>
+    <style>body{font-family:Arial;padding:20px;color:#111}
+    table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:8px}th{background:#eee}</style>
+    </head><body>
+    <h2>Relatório — ${escapeHtml(state.agenda)}</h2>
+    <table><thead><tr>
+      <th>Título</th><th>Responsável</th><th>Agenda</th><th>Data/Hora</th><th>Deadline</th><th>Prioridade</th><th>Status</th>
+    </tr></thead><tbody>${rows}</tbody></table></body></html>`);
+  w.document.close();
+});
+
+$('#search').addEventListener('input', renderTasks);
+$('#statusFilter').addEventListener('change', renderTasks);
+$('#priorityFilter').addEventListener('change', renderTasks);
+$('#assigneeFilter').addEventListener('change', renderTasks);
+$('#orderBy').addEventListener('change', renderTasks);
+$('#chkLate').addEventListener('change', renderTasks);
+$('#fromDate').addEventListener('change', renderTasks);
+$('#toDate').addEventListener('change', renderTasks);
+$('#btnClearFilters').addEventListener('click', ()=>{
+  $('#search').value = ''; $('#statusFilter').value=''; $('#priorityFilter').value='';
+  $('#assigneeFilter').value=''; $('#orderBy').value='datetime'; $('#chkLate').checked=false;
+  $('#fromDate').value=''; $('#toDate').value=''; renderTasks();
+});
+
+// ------- Calendar -------
+const monthLabel = $('#monthLabel');
+const daysGrid = $('#daysGrid');
+$('#prevMonth').addEventListener('click', ()=>{ navMonth(-1) });
+$('#nextMonth').addEventListener('click', ()=>{ navMonth(+1) });
+$('#btnToday').addEventListener('click', ()=>{ state.currentDay=new Date(); renderCalendar(); renderKPI(); });
+
+function navMonth(delta){
+  const d = state.currentDay;
+  d.setMonth(d.getMonth()+delta);
+  renderCalendar(); renderKPI();
+}
+
+function renderCalendar(){
+  const d = new Date(state.currentDay);
+  const y=d.getFullYear(), m=d.getMonth();
+  monthLabel.textContent = d.toLocaleDateString('pt-BR', {month:'long', year:'numeric'});
+  daysGrid.innerHTML='';
+
+  // first day cell index (starting Sunday)
+  const first = new Date(y,m,1);
+  const startIdx = first.getDay(); // 0..6
+  const daysInMonth = new Date(y,m+1,0).getDate();
+  const daysPrev = new Date(y,m,0).getDate();
+
+  const totalCells = 42; // 6 weeks grid
+  for(let i=0;i<totalCells;i++){
+    const cell = document.createElement('div'); cell.className='day';
+    let dayNum, isOther=false, realDate;
+    if(i<startIdx){ dayNum = daysPrev - (startIdx-1 - i); isOther=true; realDate = new Date(y,m-1,dayNum); }
+    else if(i>=startIdx+daysInMonth){ dayNum = i-(startIdx+daysInMonth)+1; isOther=true; realDate = new Date(y,m+1,dayNum); }
+    else{ dayNum = i-startIdx+1; realDate = new Date(y,m,dayNum); }
+
+    if(isOther) cell.classList.add('is-other');
+    cell.textContent = dayNum;
+
+    const k = toDateKey(realDate);
+    const has = state.tasks.filter(t => t.datetime && toDateKey(new Date(t.datetime))===k);
+    if(has.length){
+      // priority dots (simplificado): usa pior prioridade do dia
+      const colors = {alta:'red',media:'yellow',baixa:'green'};
+      const p = has.reduce((acc,t)=> acc || t.priority, null);
+      const dot = document.createElement('span'); dot.className='dot '+(p==='alta'?'red':p==='media'?'yellow':'green');
+      cell.appendChild(dot);
+    }
+    const todayKey = toDateKey(new Date());
+    if(toDateKey(realDate)===todayKey) cell.classList.add('is-today');
+
+    cell.addEventListener('click', ()=>{
+      state.currentDay = realDate; renderKPI(); scrollToFirstOfDay();
+    });
+
+    daysGrid.appendChild(cell);
+  }
+}
+
+// ------- Modal -------
+const modal = $('#modalBackdrop');
+$('#btnCancel').addEventListener('click', closeModal);
+$('#btnSave').addEventListener('click', saveModal);
+function openModal(task=null){
+  modal.classList.remove('hidden'); modal.style.display='flex';
+  $('#modalTitle').textContent = task ? 'Editar Tarefa' : 'Nova Tarefa';
+  const f = (id,v) => (document.getElementById('f_'+id).value = v||'');
+  if(task){
+    f('title',task.title); f('assignee',task.assignee); f('datetime', task.datetime?.slice(0,16));
+    f('deadline', task.deadline); f('priority', task.priority); f('status', task.status);
+    f('agenda', task.agenda); f('desc', task.desc); f('tags', task.tags?.join(', ')||'');
+    modal.dataset.editing = task.id;
+  }else{
+    ['title','assignee','datetime','deadline','desc','tags'].forEach(k=> f(k,''));
+    $('#f_priority').value='media'; $('#f_status').value='new'; $('#f_agenda').value=state.agenda;
+    delete modal.dataset.editing;
+  }
+  // datalist de responsáveis
+  const uniques = [...new Set(state.tasks.map(t=> t.assignee).filter(Boolean))];
+  $('#assignees').innerHTML = uniques.map(n=> `<option value="${escapeHtml(n)}">`).join('');
+}
+function closeModal(){ modal.style.display='none'; }
+function saveModal(){
+  const get = id => document.getElementById('f_'+id).value.trim();
+  const task = {
+    id: modal.dataset.editing || uid(),
+    title: get('title'),
+    assignee: get('assignee'),
+    datetime: get('datetime')? new Date(get('datetime')).toISOString(): null,
+    deadline: get('deadline') || null,
+    priority: get('priority'),
+    status: get('status'),
+    agenda: get('agenda'),
+    desc: get('desc'),
+    tags: get('tags')? get('tags').split(',').map(s=>s.trim()).filter(Boolean):[],
+    elapsed: modal.dataset.editing ? (state.tasks.find(t=>t.id===modal.dataset.editing)?.elapsed||0) : 0
+  };
+  if(!task.title){ alert('Título é obrigatório'); return; }
+  if(modal.dataset.editing){
+    const i = state.tasks.findIndex(t=>t.id===task.id); state.tasks[i]=task;
+  }else{
+    state.tasks.unshift(task);
+  }
+  save(); closeModal(); renderAll();
+}
+
+// ------- Listagem -------
+function filteredTasks(){
+  const q = $('#search').value.toLowerCase();
+  const st = $('#statusFilter').value;
+  const pr = $('#priorityFilter').value;
+  const asg = $('#assigneeFilter').value;
+  const onlyLate = $('#chkLate').checked;
+  const from = $('#fromDate').value ? new Date($('#fromDate').value) : null;
+  const to = $('#toDate').value ? new Date($('#toDate').value) : null;
+
+  let arr = state.tasks.filter(t=> t.agenda===state.agenda);
+
+  if(q) arr = arr.filter(t=>
+    (t.title||'').toLowerCase().includes(q) ||
+    (t.assignee||'').toLowerCase().includes(q));
+
+  if(st) arr = arr.filter(t=> t.status===st);
+  if(pr) arr = arr.filter(t=> t.priority===pr);
+  if(asg) arr = arr.filter(t=> (t.assignee||'')===asg);
+  if(onlyLate) arr = arr.filter(t=> t.deadline && new Date(t.deadline) < new Date() && t.status!=='done');
+  if(from) arr = arr.filter(t=> t.datetime && new Date(t.datetime) >= from);
+  if(to) arr = arr.filter(t=> t.datetime && new Date(t.datetime) <= new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23,59,59));
+
+  const order = $('#orderBy').value;
+  arr.sort((a,b)=>{
+    if(order==='priority'){ const w={'alta':0,'media':1,'baixa':2}; return (w[a.priority]-w[b.priority]) || cmp(a.datetime,b.datetime); }
+    if(order==='status'){ const w={'new':0,'in_progress':1,'paused':2,'done':3}; return (w[a.status]-w[b.status]) || cmp(a.datetime,b.datetime); }
+    if(order==='assignee'){ return (a.assignee||'').localeCompare(b.assignee||''); }
+    return cmp(a.datetime,b.datetime);
+  });
+  return arr;
+}
+function cmp(a,b){ return (a||'').localeCompare(b||''); }
+
+function renderTasks(){
+  const list = $('#taskList'); list.innerHTML='';
+  const tasks = filteredTasks();
+
+  // preencher filtro de responsáveis
+  const assignees = [...new Set(state.tasks.filter(t=>t.agenda===state.agenda).map(t=>t.assignee).filter(Boolean))].sort();
+  $('#assigneeFilter').innerHTML = `<option value="">Colaborador: Todos</option>` + assignees.map(a=>`<option>${escapeHtml(a)}</option>`).join('');
+
+  // contagem prioridades p/ “pizza”
+  const pHigh = tasks.filter(t=>t.priority==='alta').length;
+  const pMed = tasks.filter(t=>t.priority==='media').length;
+  const pLow = tasks.filter(t=>t.priority==='baixa').length;
+  $('#pHigh').textContent = pHigh; $('#pMed').textContent = pMed; $('#pLow').textContent = pLow;
+
+  tasks.forEach(t=>{
+    const card = document.createElement('div'); card.className='card';
+
+    const left = document.createElement('div');
+    const title = document.createElement('div'); title.className='title'; title.textContent = t.title;
+    const meta = document.createElement('div'); meta.className='meta';
+    meta.innerHTML = `
+      <span>👤 ${escapeHtml(t.assignee||'—')}</span>
+      • <span>📅 ${fmtDateTime(t.datetime)||'—'}</span>
+      ${t.deadline? `• <span class="muted">Deadline: <span style="color:${isLate(t)?'var(--danger)':'var(--text-2)'}">${t.deadline}</span></span>`:''}
+    `;
+    const tags = document.createElement('div'); tags.className='tagline';
+    tags.append(
+      chip(t.status),
+      chip(t.priority==='alta'?'alta':'', 'p-high'),
+      chip(t.priority==='media'?'média':'', 'p-medium'),
+      chip(t.priority==='baixa'?'baixa':'', 'p-low'),
+      ...(t.tags||[]).map(x=> chip(x))
+    );
+    left.append(title, meta, tags);
+
+    const right = document.createElement('div'); right.className='right';
+    const timer = document.createElement('div'); timer.className='timer'; timer.textContent = msToHMS(t.elapsed||0);
+    timer.id = 'tm_'+t.id;
+
+    const actions = document.createElement('div'); actions.className='actions';
+    const bPlay = iconBtn('▶', 'Play/Pause');
+    const bAttach = iconBtn('🗂', 'Anexo (ilustrativo)');
+    const bDone = iconBtn('✅', 'Concluir'); bDone.classList.add('ok');
+    const bEdit = iconBtn('✏️', 'Editar');
+    const bDel = iconBtn('🗑', 'Excluir'); bDel.classList.add('danger');
+
+    bPlay.addEventListener('click', ()=> toggleTimer(t.id));
+    bDone.addEventListener('click', ()=> { t.status='done'; stopTimer(t.id); save(); renderAll(); });
+    bEdit.addEventListener('click', ()=> openModal(t));
+    bDel.addEventListener('click', ()=> { if(confirm('Excluir tarefa?')){ state.tasks = state.tasks.filter(x=>x.id!==t.id); save(); renderAll(); } });
+
+    actions.append(bPlay, bAttach, bDone, bEdit, bDel);
+    right.append(timer, actions);
+
+    card.append(left, right);
+    list.append(card);
+  });
+
+  renderKPI();
+}
+function chip(text, extraClass=''){
+  const el = document.createElement('span'); el.className='chip round '+extraClass;
+  el.textContent = text; return el;
+}
+function iconBtn(label, title){
+  const b = document.createElement('button'); b.className='btn square'; b.title=title; b.textContent=label; return b;
+}
+function fmtDateTime(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+}
+function isLate(t){
+  return t.deadline && new Date(t.deadline) < new Date() && t.status!=='done';
+}
+
+// ------- KPI & Agenda label -------
+function renderKPI(){
+  $('#agendaTitle').textContent = 'Agenda: '+state.agenda;
+  const day = state.currentDay;
+  $('#kpiDay').textContent = day.toLocaleDateString('pt-BR');
+  const tasksToday = state.tasks.filter(t=> t.agenda===state.agenda && t.datetime && toDateKey(new Date(t.datetime))===toDateKey(day));
+  $('#kpiTasks').textContent = tasksToday.length;
+  $('#kpiDoing').textContent = tasksToday.filter(t=>t.status==='in_progress').length;
+  $('#kpiDone').textContent = tasksToday.filter(t=>t.status==='done').length;
+  const totalMs = tasksToday.reduce((s,t)=> s + (t.elapsed||0), 0);
+  $('#kpiTime').textContent = msToHMS(totalMs);
+}
+
+// ------- Timers -------
+function toggleTimer(id){
+  const t = state.tasks.find(x=>x.id===id);
+  const running = state.timers[id]?.running;
+  if(running){ // pause
+    stopTimer(id);
+  }else{ // start
+    // pausa outros em progresso? (política: 1 por vez)
+    Object.keys(state.timers).forEach(k=> stopTimer(k));
+    state.timers[id] = {running:true, startedAt: Date.now(), elapsed: t.elapsed||0};
+    t.status = 'in_progress';
+    tick();
+  }
+  save(); renderTasks();
+}
+function stopTimer(id){
+  const t = state.tasks.find(x=>x.id===id);
+  const tm = state.timers[id];
+  if(!tm || !tm.running) return;
+  const add = Date.now() - tm.startedAt;
+  t.elapsed = (t.elapsed||0) + add;
+  state.timers[id].running=false;
+  save(); renderTasks();
+}
+let ticking=null;
+function tick(){
+  if(ticking) return;
+  const loop = ()=>{
+    const any = Object.entries(state.timers).find(([id,tm])=> tm.running);
+    if(!any){ ticking=null; return; }
+    const [id,tm] = any;
+    const t = state.tasks.find(x=>x.id===id);
+    const ms = (t.elapsed||0) + (Date.now()-tm.startedAt);
+    const el = document.getElementById('tm_'+id);
+    if(el) el.textContent = msToHMS(ms);
+    requestAnimationFrame(loop);
+  };
+  ticking = requestAnimationFrame(loop);
+}
+
+// ------- Helpers -------
+function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[m])); }
+function scrollToFirstOfDay(){
+  const list = $('#taskList');
+  const tasks = filteredTasks();
+  const idx = tasks.findIndex(t=> t.datetime && toDateKey(new Date(t.datetime))===toDateKey(state.currentDay));
+  if(idx>=0){ const card = list.children[idx]; if(card) card.scrollIntoView({behavior:'smooth', block:'start'}); }
+}
+
+// ------- Init -------
+function renderAll(){ renderCalendar(); renderTasks(); }
+renderAll();
+</script>
+</body>
+</html>
