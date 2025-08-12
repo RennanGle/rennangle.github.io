@@ -314,8 +314,7 @@ footer.modalbar{display:flex; justify-content:flex-end; gap:8px; margin-top:8px}
         </div>
         <div>
           <label>Responsável</label>
-          <input id="f_assignee" class="input" list="assignees" placeholder="Ex.: Joana (Analista)" />
-          <datalist id="assignees"></datalist>
+          <select id="f_assignee" class="select"></select>
         </div>
       </div>
       <div class="row">
@@ -394,21 +393,40 @@ const state = {
   agenda: localStorage.getItem('agenda_current') || 'GERAL',
   currentDay: new Date(),
   tasks: JSON.parse(localStorage.getItem('agenda_tasks')||'[]'),
+  collabs: JSON.parse(localStorage.getItem('agenda_collabs')||'[]'),
   timers: {} // id -> {running, startedAt, elapsed}
 };
 
 // Exemplos iniciais (se vazio)
+if(state.collabs.length === 0){
+  state.collabs = [
+    {id:uid(), name:'Joana (Analista)'},
+    {id:uid(), name:'Carlos (Coord.)'},
+    {id:uid(), name:'Marina (Assist.)'},
+  ];
+  save();
+}
+state.tasks.forEach(t=>{
+  if(t.assignee && !t.assigneeId){
+    let c = state.collabs.find(x=>x.name===t.assignee);
+    if(!c){ c = {id:uid(), name:t.assignee}; state.collabs.push(c); }
+    t.assigneeId = c.id;
+    delete t.assignee;
+  }
+});
+save();
 if(state.tasks.length === 0){
   const now = new Date();
   const base = toDateKey(now);
+  const [joana, carlos, marina] = state.collabs;
   state.tasks = [
-    {id:uid(), title:'Revisar contrato com fornecedor', assignee:'Joana (Analista)', agenda:'NEREES',
+    {id:uid(), title:'Revisar contrato com fornecedor', assigneeId: joana.id, agenda:'NEREES',
      datetime: `${base}T14:00`, deadline: addDays(base,1), priority:'alta', status:'in_progress',
      tags:['in_progress','alta','NEREES'], desc:'Checar cláusulas 4.2 e 5.1; anexar parecer jurídico.', elapsed: 42*60*1000 },
-    {id:uid(), title:'Preparar pauta da reunião semanal', assignee:'Carlos (Coord.)', agenda:'Reuniões',
+    {id:uid(), title:'Preparar pauta da reunião semanal', assigneeId: carlos.id, agenda:'Reuniões',
      datetime: `${base}T09:00`, deadline: addDays(base,2), priority:'media', status:'new',
      tags:['new','média','Reuniões'], desc:'Pontos: metas, cronograma, pendências.', elapsed: 0 },
-    {id:uid(), title:'Atualizar planilha de agendamentos', assignee:'Marina (Assist.)', agenda:'Agendamentos',
+    {id:uid(), title:'Atualizar planilha de agendamentos', assigneeId: marina.id, agenda:'Agendamentos',
      datetime: `${base}T16:30`, deadline: addDays(base,4), priority:'baixa', status:'paused',
      tags:['paused','baixa','Agendamentos'], desc:'Sincronizar com Google Agenda.', elapsed: 72*60*1000 },
   ];
@@ -419,6 +437,7 @@ function addDays(dateStr, days){
 }
 function save(){
   localStorage.setItem('agenda_tasks', JSON.stringify(state.tasks));
+  localStorage.setItem('agenda_collabs', JSON.stringify(state.collabs));
   localStorage.setItem('agenda_current', state.agenda);
 }
 
@@ -440,14 +459,25 @@ $('#importFile').addEventListener('change', async (e)=>{
   const text = await file.text();
   try{
     const data = JSON.parse(text);
-    if(Array.isArray(data)){ state.tasks = data; save(); renderAll(); }
+    if(Array.isArray(data)){
+      state.tasks = data;
+      state.tasks.forEach(t=>{
+        if(t.assignee && !t.assigneeId){
+          let c = state.collabs.find(x=>x.name===t.assignee);
+          if(!c){ c = {id:uid(), name:t.assignee}; state.collabs.push(c); }
+          t.assigneeId = c.id;
+          delete t.assignee;
+        }
+      });
+      save(); renderAll();
+    }
   }catch(err){ alert('Arquivo inválido'); }
 });
 $('#btnReport').addEventListener('click', ()=>{
   const w = window.open('', '_blank');
   const rows = filteredTasks().map(t=> `<tr>
     <td>${escapeHtml(t.title)}</td>
-    <td>${escapeHtml(t.assignee||'')}</td>
+    <td>${escapeHtml(collabName(t.assigneeId))}</td>
     <td>${escapeHtml(t.agenda)}</td>
     <td>${fmtDateTime(t.datetime)}</td>
     <td>${t.deadline||''}</td>
@@ -544,8 +574,10 @@ function openModal(task=null){
   modal.classList.remove('hidden'); modal.style.display='flex';
   $('#modalTitle').textContent = task ? 'Editar Tarefa' : 'Nova Tarefa';
   const f = (id,v) => (document.getElementById('f_'+id).value = v||'');
+  $('#f_assignee').innerHTML = '<option value=""></option>' +
+    state.collabs.map(c=> `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
   if(task){
-    f('title',task.title); f('assignee',task.assignee); f('datetime', task.datetime?.slice(0,16));
+    f('title',task.title); f('assignee',task.assigneeId); f('datetime', task.datetime?.slice(0,16));
     f('deadline', task.deadline); f('priority', task.priority); f('status', task.status);
     f('agenda', task.agenda); f('desc', task.desc); f('tags', task.tags?.join(', ')||'');
     modal.dataset.editing = task.id;
@@ -554,9 +586,6 @@ function openModal(task=null){
     $('#f_priority').value='media'; $('#f_status').value='new'; $('#f_agenda').value=state.agenda;
     delete modal.dataset.editing;
   }
-  // datalist de responsáveis
-  const uniques = [...new Set(state.tasks.map(t=> t.assignee).filter(Boolean))];
-  $('#assignees').innerHTML = uniques.map(n=> `<option value="${escapeHtml(n)}">`).join('');
 }
 function closeModal(){ modal.style.display='none'; }
 function saveModal(){
@@ -564,7 +593,7 @@ function saveModal(){
   const task = {
     id: modal.dataset.editing || uid(),
     title: get('title'),
-    assignee: get('assignee'),
+    assigneeId: get('assignee'),
     datetime: get('datetime')? new Date(get('datetime')).toISOString(): null,
     deadline: get('deadline') || null,
     priority: get('priority'),
@@ -597,11 +626,11 @@ function filteredTasks(){
 
   if(q) arr = arr.filter(t=>
     (t.title||'').toLowerCase().includes(q) ||
-    (t.assignee||'').toLowerCase().includes(q));
+    collabName(t.assigneeId).toLowerCase().includes(q));
 
   if(st) arr = arr.filter(t=> t.status===st);
   if(pr) arr = arr.filter(t=> t.priority===pr);
-  if(asg) arr = arr.filter(t=> (t.assignee||'')===asg);
+  if(asg) arr = arr.filter(t=> (t.assigneeId||'')===asg);
   if(onlyLate) arr = arr.filter(t=> t.deadline && new Date(t.deadline) < new Date() && t.status!=='done');
   if(from) arr = arr.filter(t=> t.datetime && new Date(t.datetime) >= from);
   if(to) arr = arr.filter(t=> t.datetime && new Date(t.datetime) <= new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23,59,59));
@@ -610,7 +639,7 @@ function filteredTasks(){
   arr.sort((a,b)=>{
     if(order==='priority'){ const w={'alta':0,'media':1,'baixa':2}; return (w[a.priority]-w[b.priority]) || cmp(a.datetime,b.datetime); }
     if(order==='status'){ const w={'new':0,'in_progress':1,'paused':2,'done':3}; return (w[a.status]-w[b.status]) || cmp(a.datetime,b.datetime); }
-    if(order==='assignee'){ return (a.assignee||'').localeCompare(b.assignee||''); }
+    if(order==='assignee'){ return collabName(a.assigneeId).localeCompare(collabName(b.assigneeId)); }
     return cmp(a.datetime,b.datetime);
   });
   return arr;
@@ -622,8 +651,9 @@ function renderTasks(){
   const tasks = filteredTasks();
 
   // preencher filtro de responsáveis
-  const assignees = [...new Set(state.tasks.filter(t=>t.agenda===state.agenda).map(t=>t.assignee).filter(Boolean))].sort();
-  $('#assigneeFilter').innerHTML = `<option value="">Colaborador: Todos</option>` + assignees.map(a=>`<option>${escapeHtml(a)}</option>`).join('');
+  const assignees = [...new Set(state.tasks.filter(t=>t.agenda===state.agenda).map(t=>t.assigneeId).filter(Boolean))]
+    .sort((a,b)=>collabName(a).localeCompare(collabName(b)));
+  $('#assigneeFilter').innerHTML = `<option value="">Colaborador: Todos</option>` + assignees.map(id=>`<option value="${id}">${escapeHtml(collabName(id))}</option>`).join('');
 
   // contagem prioridades p/ “pizza”
   const pHigh = tasks.filter(t=>t.priority==='alta').length;
@@ -638,7 +668,7 @@ function renderTasks(){
     const title = document.createElement('div'); title.className='title'; title.textContent = t.title;
     const meta = document.createElement('div'); meta.className='meta';
     meta.innerHTML = `
-      <span>👤 ${escapeHtml(t.assignee||'—')}</span>
+      <span>👤 ${escapeHtml(collabName(t.assigneeId)||'—')}</span>
       • <span>📅 ${fmtDateTime(t.datetime)||'—'}</span>
       ${t.deadline? `• <span class="muted">Deadline: <span style="color:${isLate(t)?'var(--danger)':'var(--text-2)'}">${t.deadline}</span></span>`:''}
     `;
@@ -747,6 +777,7 @@ function tick(){
 }
 
 // ------- Helpers -------
+function collabName(id){ return state.collabs.find(c=>c.id===id)?.name || ''; }
 function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[m])); }
 function scrollToFirstOfDay(){
   const list = $('#taskList');
